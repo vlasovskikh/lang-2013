@@ -46,7 +46,7 @@ some functions over lists and discuss the method of structural
 recursion.
 
 
-04. Higher-order functions
+04. Higher-order Functions
 --------------------------
 
 We start with a task for the students to create a Java function
