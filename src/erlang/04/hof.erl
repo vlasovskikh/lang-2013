@@ -59,6 +59,23 @@ filter_test() ->
   ?_assertEqual([1, 2], filter(fun(X)-> X > 0 end, [-1, 1, 0, -2, 2])).
 
 
+sum(Xs) ->
+  lists:foldl(fun (X, Y) -> X + Y end, 0, Xs).
+
+
+fact(0) -> 1;
+fact(X) -> foldl(fun (X, Y) -> X * Y end,
+                 1,
+                 lists:seq(1, X)).
+
+
+series(N) ->
+  Xs = lists:seq(1, N),
+  Evens = lists:filter(fun (X) -> X rem 2 =:= 0 end, Xs),
+  Squares = lists:map(fun (X) -> X * X  end, Evens),
+  sum(Squares).
+
+
 map_test() ->
   ?_assertEqual([1, 2, 3], map(fun (X) -> X end, [1, 2, 3])),
   ?_assertEqual([1, 4, 9], map(fun (X) -> X * X end, [1, 2, 3])).
@@ -76,3 +93,7 @@ join_test() ->
   Ip = [127, 0, 0, 1],
   Actual = join(map(fun (X) -> integer_to_list(X, 10) end, Ip), "."),
   ?_assertEqual("127.0.0.1", Actual).
+
+
+series_test() ->
+  ?_assertEqual(20, series(4)).
