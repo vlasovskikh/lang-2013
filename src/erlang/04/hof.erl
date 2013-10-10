@@ -1,6 +1,6 @@
 -module(hof).
 -author("vlan").
--export([map/2, filter/2, foldr/3, foldl/3, join/2]).
+-export([map/2, filter/2, foldr/3, foldl/3, join/2, filter_test/0]).
 -include_lib("eunit/include/eunit.hrl").
 
 
@@ -22,7 +22,7 @@ filter(F, [X|Xs]) ->
     true ->
       [X|filter(F, Xs)];
     _ ->
-      Xs
+      filter(F, Xs)
   end.
 
 
@@ -49,7 +49,15 @@ join([First|Rest], Sep) ->
 map_f(F, Xs) ->
   foldr(fun (X, Acc) -> [F(X)|Acc] end, [], Xs).
 
-
+filter_test() ->
+	?_assertEqual([],filter(fun(X) -> true end, [])),
+	
+	?_assertEqual([1,2],filter(fun(X) -> true end, [1,2])),
+	?_assertEqual([],filter(fun(X) -> false end, [1,2])),
+	
+	?_assertEqual([],filter(fun(X)-> X > 0 end,  [0,-1,-2])),
+	?_assertEqual([1,2],filter(fun(X)-> X > 0 end, [1,2])),
+	?_assertEqual([1,2],filter(fun(X)-> X > 0 end, [-1,1,0,-2,2])).
 map_test() ->
   ?_assertEqual([1, 2, 3], map(fun (X) -> X end, [1, 2, 3])),
   ?_assertEqual([1, 4, 9], map(fun (X) -> X * X end, [1, 2, 3])).
