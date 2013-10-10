@@ -22,7 +22,7 @@ filter(F, [X|Xs]) ->
     true ->
       [X|filter(F, Xs)];
     _ ->
-      Xs
+      filter(F,Xs);
   end.
 
 
