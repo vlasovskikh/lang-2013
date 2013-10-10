@@ -59,6 +59,8 @@ filter_test() ->
 	?_assertEqual([],filter(fun(X)-> X > 0 end,  [0,-1,-2])),
 	?_assertEqual([1,2],filter(fun(X)-> X > 0 end, [1,2])),
 	?_assertEqual([1,2],filter(fun(X)-> X > 0 end, [-1,1,0,-2,2])).
+	
+	
 map_test() ->
   ?_assertEqual([1, 2, 3], map(fun (X) -> X end, [1, 2, 3])),
   ?_assertEqual([1, 4, 9], map(fun (X) -> X * X end, [1, 2, 3])).
