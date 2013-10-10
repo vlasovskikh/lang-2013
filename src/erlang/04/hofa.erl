@@ -1,5 +1,5 @@
--module(hofa).
--author("alena").
+-module(hof).
+-author("vlan").
 -export([map/2, filter/2, foldr/3, foldl/3, join/2]).
 -include_lib("eunit/include/eunit.hrl").
 
@@ -50,20 +50,7 @@ map_f(F, Xs) ->
   foldr(fun (X, Acc) -> [F(X)|Acc] end, [], Xs).
 
 
-map_test() ->
-  ?_assertEqual([1, 2, 3], map(fun (X) -> X end, [1, 2, 3])),
-  ?_assertEqual([1, 4, 9], map(fun (X) -> X * X end, [1, 2, 3])).
+filter_test() ->
+  ?_assertEqual([1, 2, 3], filter(fun(X)-> X rem 2 == 0 end,[1,2,3,12,143])).
 
 
-map_f_test() ->
-  ?_assertEqual([1, 2, 3], map_f(fun (X) -> X end, [1, 2, 3])),
-  ?_assertEqual([1, 4, 9], map_f(fun (X) -> X * X end, [1, 2, 3])).
-
-
-join_test() ->
-  ?_assertEqual("foo, bar, baz", join(["foo", "bar", "baz"], ", ")),
-  ?_assertEqual("foo", join(["foo"], ", ")),
-  ?_assertEqual("", join([], ", ")),
-  Ip = [127, 0, 0, 1],
-  Actual = join(map(fun (X) -> integer_to_list(X, 10) end, Ip), "."),
-  ?_assertEqual("127.0.0.1", Actual).
