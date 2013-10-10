@@ -1,6 +1,6 @@
 -module(hof).
 -author("vlan").
--export([map/2, filter/2, foldr/3, foldl/3, join/2, filter_test/0]).
+-export([map/2, filter/2, foldr/3, foldl/3, join/2]).
 -include_lib("eunit/include/eunit.hrl").
 
 
