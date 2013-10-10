@@ -51,6 +51,4 @@ map_f(F, Xs) ->
 
 
 filter_test() ->
-  ?_assertEqual([1, 2, 3], filter(fun(X)-> X rem 2 == 0 end,[1,2,3,12,143])).
-
-
+  ?_assertEqual([2, 12], filter(fun(X)-> X rem 2 == 0 end,[1,2,3,12,143])).
