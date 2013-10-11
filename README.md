@@ -92,3 +92,15 @@ function on strings.
 
 See the final versions of our IP to string functions.
 
+
+05. HOFs on Lists
+-----------------
+
+TODO: See hof.erl
+
+
+06. Henderson-Escher Example (1)
+--------------------------------
+
+TODO
+
