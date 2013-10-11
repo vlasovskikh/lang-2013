@@ -29,36 +29,52 @@
 -spec map_vector(frame(), vector()) -> vector().
 
 
-% Segments are the only vector graphic elements available at the
-% moment
--type segment() :: {segment, vector(), vector()}.
-
--spec new_segment(Start :: vector(), End :: vector()) -> segment().
--spec new_segment(X1 :: number(), Y1 :: number(),
-                  X2 :: number(), Y2 :: number()) -> segment().
--spec segment_start(segment()) -> vector().
--spec segment_end(segment()) -> vector().
-
-
-% SVG is used here only in the serialized string form
--type svg() :: string().
+% SVG element with the following set of ad hoc polymorphic operations
+-type svg_operations() :: {
+  svg_operations,
+  ToSvg :: fun(() -> string()),
+  MapToFrame :: fun((frame()) -> any_svg_element())
+}.
+-type svg_element(Name, Data) :: {Name, svg_operations(), Data}.
+-type any_svg_element() :: svg_element(atom(), any()).
 
 
-% Segments are SVG primitives
--spec segment_to_svg(segment()) -> svg().
+% Erlang doesn't have language support for ad hoc polymorphism, so we
+% have to emulate it using a technique similar to virtual function
+% tables of C++.
+
+
+% Types of polymorphic functions on SVG elements
+-spec to_svg(any_svg_element()) -> string().
+-spec map_to_frame(svg_element(Name, Data), frame()) -> svg_element(Name, Data).
+
+
+% Line is a scalable vector graphic (SVG) element, that represent a line
+-type svg_line() :: svg_element(svg_line, {vector(), vector()}).
+
+-spec new_svg_line(Start :: vector(), End :: vector()) -> svg_line().
+-spec new_svg_line(X1 :: number(), Y1 :: number(),
+                  X2 :: number(), Y2 :: number()) -> svg_line().
+
+
+% Ellipse is another example of a polymorphic SVG element
+-type svg_ellipse() :: svg_element(svg_ellipse, {vector(), number(), number()}).
+-spec new_svg_ellipse(Center :: vector(), Rx :: number(), Ry :: number) -> svg_ellipse().
 
 
 % Picture is a function that when given a frame, returns a list of
 % some elements representing the picture in this frame. Picture
-% is the only primitive in Henderson-Escher language
+% is the only primitive in Henderson-Escher language. Note that the
+% picture abstracts away the type of its elements
 -type picture(A) :: fun((frame()) -> [A]).
 
 
-% Currently we deal only with pictures that consists of segments
--spec new_segmented_picture([segment()]) -> picture(segment()).
--spec picture_to_svg(picture(segment()), frame(),
+% Currently we deal only with pictures, that consist of SVG elements
+-spec new_svg_picture([any_svg_element()]) -> picture(any_svg_element()).
+-spec picture_to_svg(picture(any_svg_element()), frame(),
                      Width :: string(),
-                     Height :: string()) -> svg().
+                     Height :: string()) -> string().
+
 
 % Henderson-Escher language of pictures has some means of
 % combination
@@ -66,6 +82,11 @@
 -spec above(picture(A), picture(A)) -> picture(A).
 -spec flip_vert(picture(A)) -> picture(A).
 -spec flip_horiz(picture(A)) -> picture(A).
+
+
+% Invoke polymorphic functions on a SVG element
+to_svg({_, {svg_operations, ToSvg, _}, _}) -> ToSvg().
+map_to_frame({_, {svg_operations, _, MapToFrame}, _}, Frame) -> MapToFrame(Frame).
 
 
 % Let's switch to implementations of these type specifications.
@@ -122,37 +143,71 @@ map_vector(Frame, Vector) ->
                                      y_coord(Vector)))).
 
 
-% Constructors and selectors of segment()
-new_segment(Start, End) -> {segment, Start, End}.
-new_segment(X1, Y1, X2, Y2) ->
-  new_segment(new_vector(X1, Y1),
-              new_vector(X2, Y2)).
-segment_start({segment, Start, _}) -> Start.
-segment_end({segment, _, End}) -> End.
+% Constructors and operations of svg_line()
+new_svg_line(Start, End) ->
+  Data = {Start, End},
+  {
+    svg_line,
+    {
+      svg_operations,
+      fun () ->
+        io_lib:format("<line x1='~w' y1='~w' x2='~w' y2='~w' stroke-width='5'/>",
+                      [
+                        x_coord(Start),
+                        y_coord(Start),
+                        x_coord(End),
+                        y_coord(End)
+                      ])
+      end,
+      fun (Frame) ->
+        new_svg_line(map_vector(Frame, Start),
+                     map_vector(Frame, End))
+      end
+    },
+    Data
+  }.
+new_svg_line(X1, Y1, X2, Y2) ->
+  new_svg_line(new_vector(X1, Y1),
+               new_vector(X2, Y2)).
 
 
-% Segment is a SVG (Scalable Vector Graphics) primitive, so this is how
-% a segment becomes SVG data
-segment_to_svg(Segment) ->
-  Start = segment_start(Segment),
-  End = segment_end(Segment),
-  io_lib:format("<line x1='~w' y1='~w' x2='~w' y2='~w' stroke-width='5'/>",
-                [
-                  x_coord(Start),
-                  y_coord(Start),
-                  x_coord(End),
-                  y_coord(End)
-                ]).
+% Constructor and operations of ellipse()
+new_svg_ellipse(Center, Rx, Ry) ->
+  Data = {Center, Rx, Ry},
+  {
+    svg_ellipse,
+    {
+      svg_operations,
+      fun () ->
+        io_lib:format("<ellipse cx='~w' cy='~w' rx='~w' ry='~w' fill='none' stroke-width='5'/>",
+                      [
+                        x_coord(Center),
+                        y_coord(Center),
+                        Rx,
+                        Ry
+                      ])
+      end,
+      fun (Frame) ->
+        % XXX: This simple radius transformation works only for
+        % rectangular frames
+        new_svg_ellipse(map_vector(Frame, Center),
+                        Rx * abs(x_coord(frame_horiz(Frame))),
+                        Ry * abs(y_coord(frame_vert(Frame))))
+      end
+    },
+    Data
+  }.
 
-% Creating a picture from a list of segments means creating a function
-% that when given a frame, vector-maps all the segments to this frame
-new_segmented_picture(Segments) ->
+
+% Creating a picture from a list of SVG elements means creating a function
+% that when given a frame, maps each SVG element to this frame
+new_svg_picture(Elements) ->
   fun (Frame) ->
-    lists:map(fun (Segment) ->
-                new_segment(map_vector(Frame, segment_start(Segment)),
-                            map_vector(Frame, segment_end(Segment)))
-              end,
-              Segments)
+    lists:map(
+      fun (Element) ->
+        map_to_frame(Element, Frame)
+      end,
+      Elements)
   end.
 
 
@@ -168,8 +223,8 @@ picture_to_svg(Picture, Frame, Width, Height) ->
       x_coord(frame_horiz(Frame)),
       y_coord(frame_vert(Frame))
     ]),
-  Segments = Picture(Frame),
-  Body = string:join(lists:map(fun segment_to_svg/1, Segments),
+  Elements = Picture(Frame),
+  Body = string:join(lists:map(fun to_svg/1, Elements),
                      "\n"),
   Footer =
     "\n"
@@ -178,19 +233,20 @@ picture_to_svg(Picture, Frame, Width, Height) ->
   Header ++ Body ++ Footer.
 
 
-% This is a picture of λ
+% This is a picture of λ in circle
 picture_of_lambda() ->
-  new_segmented_picture([
-    new_segment(0.1, 0.1, 0.35, 0.15),
-    new_segment(0.35, 0.15, 0.45, 0.25),
-    new_segment(0.45, 0.25, 0.9, 0.9),
-    new_segment(0.1, 0.9, 0.5, 0.35)
+  new_svg_picture([
+    new_svg_line(0.1, 0.1, 0.35, 0.15),
+    new_svg_line(0.35, 0.15, 0.45, 0.25),
+    new_svg_line(0.45, 0.25, 0.9, 0.9),
+    new_svg_line(0.1, 0.9, 0.5, 0.35),
+    new_svg_ellipse(new_vector(0.5, 0.5), 0.6, 0.6)
   ]).
 
 
 % This is a picture of \
 picture_of_slash() ->
-  new_segmented_picture([new_segment(0, 0, 1, 1)]).
+  new_svg_picture([new_svg_line(0, 0, 1, 1)]).
 
 
 % Means of combination in Henderson-Escher language
@@ -215,8 +271,8 @@ above(Top, Bottom) ->
     Horizontal = frame_horiz(Frame),
     Top(new_frame(Origin, Horizontal, NewVertical)) ++
     Bottom(new_frame(add_vector(Origin, NewVertical),
-                  Horizontal,
-                  NewVertical))
+                     Horizontal,
+                     NewVertical))
   end.
 
 
@@ -277,14 +333,24 @@ map_coord_test() ->
 
 simple_picture_test() ->
   Slash = picture_of_slash(),
-  ?assertEqual([new_segment(0, 0, 1, 1)], Slash(identity_frame())).
+  ?assertEqual([new_svg_line(0, 0, 1, 1)], Slash(identity_frame())).
 
 
 beside_test() ->
   Slash = picture_of_slash(),
   Picture = beside(Slash, Slash),
   ?assertEqual([
-                 new_segment(0.0, 0.0, 0.5, 1.0),
-                 new_segment(0.5, 0.0, 1.0, 1.0)
+                 new_svg_line(0.0, 0.0, 0.5, 1.0),
+                 new_svg_line(0.5, 0.0, 1.0, 1.0)
                ],
                Picture(identity_frame())).
+
+
+map_to_frame_test() ->
+  Frame = new_frame(new_vector(0, 0),
+                    new_vector(2, 0),
+                    new_vector(0, 2)),
+  ?assertEqual(new_svg_line(0.0, 0.0, 2.0, 2.0),
+               map_to_frame(new_svg_line(0.0, 0.0, 1.0, 1.0), Frame)),
+  ?assertEqual(new_svg_ellipse(new_vector(0.2, 0.2), 0.2, 0.2),
+               map_to_frame(new_svg_ellipse(new_vector(0.1, 0.1), 0.1, 0.1), Frame)).
