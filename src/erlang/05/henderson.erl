@@ -59,7 +59,7 @@
 
 % Ellipse is another example of a polymorphic SVG element
 -type svg_ellipse() :: svg_element(svg_ellipse, {vector(), number(), number()}).
--spec new_svg_ellipse(Center :: vector(), Rx :: number(), Ry :: number) -> svg_ellipse().
+-spec new_svg_ellipse(Center :: vector(), Rx :: number(), Ry :: number()) -> svg_ellipse().
 
 
 % Picture is a function that when given a frame, returns a list of
