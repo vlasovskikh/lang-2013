@@ -99,8 +99,7 @@ See the final versions of our IP to string functions.
 TODO: See hof.erl
 
 
-06. Henderson-Escher Example (1)
---------------------------------
+06-07. Henderson-Escher Example
+-------------------------------
 
-TODO
-
+TODO: See henderson.erl
