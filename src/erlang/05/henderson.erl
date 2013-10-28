@@ -151,7 +151,7 @@ new_svg_line(Start, End) ->
     {
       svg_operations,
       fun () ->
-        io_lib:format("<line x1='~w' y1='~w' x2='~w' y2='~w' stroke-width='5'/>",
+        io_lib:format("<line x1='~w' y1='~w' x2='~w' y2='~w' stroke-width='2'/>",
                       [
                         x_coord(Start),
                         y_coord(Start),
@@ -179,7 +179,7 @@ new_svg_ellipse(Center, Rx, Ry) ->
     {
       svg_operations,
       fun () ->
-        io_lib:format("<ellipse cx='~w' cy='~w' rx='~w' ry='~w' fill='none' stroke-width='5'/>",
+        io_lib:format("<ellipse cx='~w' cy='~w' rx='~w' ry='~w' fill='none' stroke-width='2'/>",
                       [
                         x_coord(Center),
                         y_coord(Center),
@@ -239,8 +239,8 @@ picture_of_lambda() ->
     new_svg_line(0.1, 0.1, 0.35, 0.15),
     new_svg_line(0.35, 0.15, 0.45, 0.25),
     new_svg_line(0.45, 0.25, 0.9, 0.9),
-    new_svg_line(0.1, 0.9, 0.5, 0.35),
-    new_svg_ellipse(new_vector(0.5, 0.5), 0.6, 0.6)
+    new_svg_line(0.1, 0.9, 0.5, 0.35)
+    % new_svg_ellipse(new_vector(0.5, 0.5), 0.6, 0.6)
   ]).
 
 
@@ -294,14 +294,88 @@ flip_horiz(Picture) ->
   end.
 
 
+square_of_four(Picture) ->
+  Top = beside(flip_horiz(Picture), Picture),
+  above(Top, flip_vert(Top)).
+
+
+simple_right_split(Picture, 0) ->
+  Picture;
+simple_right_split(Picture, N) ->
+  Smaller = simple_right_split(Picture, N - 1),
+  beside(Picture, above(Smaller, Smaller)).
+
+
+-type compose(A) :: fun((picture(A), picture(A)) -> picture(A)).
+-spec split(compose(A), compose(A)) ->
+  fun((picture(A), integer()) -> picture(A)).
+
+
+split(Compose1, Compose2) ->
+  fun (Picture, N) ->
+    lists:foldl(fun (_, Acc) ->
+                  Compose1(Picture, Compose2(Acc, Acc))
+                end,
+                Picture,
+                lists:seq(1, N))
+  end.
+
+
+flip(F) -> fun (B, A) -> F(A, B) end.
+
+
+right_split(Picture, N) ->
+  F = split(fun beside/2, fun above/2),
+  F(Picture, N).
+
+
+up_split(Picture, N) ->
+  F = split(flip(fun above/2), fun beside/2),
+  F(Picture, N).
+
+
+corner_split(Picture, 0) ->
+  Picture;
+corner_split(Picture, N) ->
+  K = N - 1,
+  Up = up_split(Picture, K),
+  Right = right_split(Picture, K),
+  Corner = corner_split(Picture, K),
+  beside(above(Up, Picture),
+         above(Corner, Right)).
+
+
+square_limit(Picture, N) ->
+  square_of_four(corner_split(Picture, N)).
+
+
+-type transform(A) :: fun((picture(A)) -> picture(A)).
+-spec square_of_four_transforms(transform(A), transform(A), transform(A), transform(A)) -> transform(A).
+
+
+square_of_four_transforms(UpLeft, UpRight, DownLeft, DownRight) ->
+  fun (Picture) ->
+    above(beside(UpLeft(Picture), UpRight(Picture)),
+          beside(DownLeft(Picture), DownRight(Picture)))
+  end.
+
+
+-spec square_limit_transform(integer()) -> fun((picture(A)) -> picture(A)).
+
+
+square_limit_transform(N) ->
+  fun (Picture) ->
+    square_limit(Picture, N)
+  end.
+
+
 % Main entry point of an Erlang script that can be run via escript
 main([]) ->
   Picture = picture_of_lambda(),
   Frame = new_frame(new_vector(0, 0),
                     new_vector(200, 0),
                     new_vector(0, 200)),
-  Top = beside(flip_horiz(Picture), Picture),
-  Result = above(Top, flip_vert(Top)),
+  Result = square_limit(Picture, 5),
   io:format("~s~n", [picture_to_svg(Result, Frame, "10cm", "10cm")]).
 
 
